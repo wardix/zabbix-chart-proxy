@@ -1,14 +1,6 @@
 import { Hono } from 'hono'
 import { logger } from 'hono/logger'
-import {
-  PORT,
-  ZABBIX_CHART_BASE_URL,
-  ZABBIX_CREDENTIAL_TIMEZONE_CONFIG,
-  ZABBIX_LEGACY_CHART_BASE_URL,
-  ZABBIX_LOGIN_DEFAULT_PASSWORD,
-  ZABBIX_LOGIN_DEFAULT_USERNAME,
-  ZABBIX_LOGIN_URL,
-} from './config'
+import { PORT, ZABBIX_PREFIX_CONFIG } from './config'
 
 const app = new Hono()
 
@@ -16,18 +8,13 @@ app.use(logger())
 
 let cachedSessionCookie: any = {}
 
-async function getSessionCookieByTimezone(timezone = 'Asia/Jakarta') {
-  if (cachedSessionCookie[timezone]) {
-    return cachedSessionCookie[timezone]
+async function getSessionCookieByZabbixPrefix(prefix = 'o') {
+  if (cachedSessionCookie[prefix]) {
+    return cachedSessionCookie[prefix]
   }
 
-  const config = JSON.parse(ZABBIX_CREDENTIAL_TIMEZONE_CONFIG)
-  const { username, password } = config[timezone]
-    ? config[timezone]
-    : {
-        username: ZABBIX_LOGIN_DEFAULT_USERNAME,
-        password: ZABBIX_LOGIN_DEFAULT_PASSWORD,
-      }
+  const config = JSON.parse(ZABBIX_PREFIX_CONFIG)
+  const { username, password, login_url } = config[prefix]
 
   const body = new URLSearchParams({
     name: username,
@@ -36,7 +23,7 @@ async function getSessionCookieByTimezone(timezone = 'Asia/Jakarta') {
     enter: 'Sign in',
   })
 
-  const response = await fetch(ZABBIX_LOGIN_URL, {
+  const response = await fetch(login_url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -51,8 +38,10 @@ async function getSessionCookieByTimezone(timezone = 'Asia/Jakarta') {
 
   const cookies = response.headers.get('set-cookie') || ''
 
-  const [sessionCookie] = cookies.split('; ')
-  cachedSessionCookie[timezone] = sessionCookie
+  const matches = cookies.match(/(zbx_session(id)?=([^;]+))/g)
+  const sessionCookie = matches ? matches[matches.length - 1] : ''
+
+  cachedSessionCookie[prefix] = sessionCookie
 
   return sessionCookie
 }
@@ -62,21 +51,27 @@ app.get('/', (c) => {
 })
 
 app.get('/chart.php', async (c) => {
+  const config = JSON.parse(ZABBIX_PREFIX_CONFIG)
   const queryParams = c.req.query()
-  let chartBaseUrl = ZABBIX_LEGACY_CHART_BASE_URL
+  let prefix = 'o'
   const graphId = queryParams.graphid
   let realGraphId = graphId
-  let timezone = 'Asia/Jakarta'
+
   if (graphId.startsWith('m')) {
-    timezone = 'Asia/Makassar'
-    chartBaseUrl = ZABBIX_CHART_BASE_URL
+    prefix = 'm'
     realGraphId = graphId.substring(1)
   } else if (graphId.startsWith('j')) {
-    chartBaseUrl = ZABBIX_CHART_BASE_URL
+    prefix = 'j'
+    realGraphId = graphId.substring(1)
+  } else if (graphId.startsWith('b')) {
+    prefix = 'b'
+    realGraphId = graphId.substring(1)
+  } else if (graphId.startsWith('o')) {
+    prefix = 'o'
     realGraphId = graphId.substring(1)
   }
 
-  const imageUrl = new URL(chartBaseUrl)
+  const imageUrl = new URL(config[prefix].chart_base_url)
   Object.keys(queryParams).forEach((key) => {
     if (key === 'graphid') {
       imageUrl.searchParams.append(key, realGraphId)
@@ -86,7 +81,7 @@ app.get('/chart.php', async (c) => {
   })
 
   try {
-    const sessionCookie = await getSessionCookieByTimezone(timezone)
+    const sessionCookie = await getSessionCookieByZabbixPrefix(prefix)
 
     const response = await fetch(imageUrl.toString(), {
       headers: {
