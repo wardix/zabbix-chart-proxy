@@ -77,6 +77,21 @@ app.get('/chart.php', async (c) => {
       imageUrl.searchParams.append(key, realGraphId)
       return
     }
+    if (key === 'period') {
+      if (queryParams['period'] == '14400') {
+        imageUrl.searchParams.append('from', 'now-4h')
+      } else if (queryParams['period'] == '86400') {
+        imageUrl.searchParams.append('from', 'now-1d')
+      } else if (queryParams['period'] == '604800') {
+        imageUrl.searchParams.append('from', 'now-7d')
+      } else if (queryParams['period'] == '2628000') {
+        imageUrl.searchParams.append('from', 'now-30d')
+      } else if (queryParams['period'] == '31536000') {
+        imageUrl.searchParams.append('from', 'now-365d')
+      }
+      imageUrl.searchParams.append('to', 'now')
+      imageUrl.searchParams.append('profileIdx', 'web.charts.filter')
+    }
     imageUrl.searchParams.append(key, queryParams[key])
   })
 
