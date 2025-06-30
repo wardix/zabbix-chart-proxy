@@ -72,28 +72,51 @@ app.get('/chart.php', async (c) => {
   }
 
   const imageUrl = new URL(config[prefix].chart_base_url)
-  Object.keys(queryParams).forEach((key) => {
-    if (key === 'graphid') {
-      imageUrl.searchParams.append(key, realGraphId)
-      return
+  imageUrl.searchParams.append('graphid', realGraphId)
+  imageUrl.searchParams.append('profileIdx', 'web.charts.filter')
+  imageUrl.searchParams.append('period', queryParams.period)
+  if (queryParams.stime) {
+    imageUrl.searchParams.append('stime', queryParams.stime)
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: config[prefix].timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    })
+    const start = formatter.format(new Date(Number(queryParams.stime) * 1000))
+    const end = formatter.format(
+      new Date((Number(queryParams.stime) + Number(queryParams.period)) * 1000),
+    )
+    imageUrl.searchParams.append('from', `${start.replace(',', '')}`)
+    imageUrl.searchParams.append('to', `${end.replace(',', '')}`)
+  } else {
+    imageUrl.searchParams.append('to', 'now')
+    let start = 'now-1d'
+    switch (queryParams.period) {
+      case '14400':
+        start = 'now-4h'
+        break
+      case '86400':
+        start = 'now-1d'
+        break
+      case '604800':
+        start = 'now-7d'
+        break
+      case '2628000':
+        start = 'now-30d'
+        break
+      case '31536000':
+        start = 'now-365d'
+        break
+      default:
+        start = 'now-1d'
     }
-    if (key === 'period') {
-      if (queryParams['period'] == '14400') {
-        imageUrl.searchParams.append('from', 'now-4h')
-      } else if (queryParams['period'] == '86400') {
-        imageUrl.searchParams.append('from', 'now-1d')
-      } else if (queryParams['period'] == '604800') {
-        imageUrl.searchParams.append('from', 'now-7d')
-      } else if (queryParams['period'] == '2628000') {
-        imageUrl.searchParams.append('from', 'now-30d')
-      } else if (queryParams['period'] == '31536000') {
-        imageUrl.searchParams.append('from', 'now-365d')
-      }
-      imageUrl.searchParams.append('to', 'now')
-      imageUrl.searchParams.append('profileIdx', 'web.charts.filter')
-    }
-    imageUrl.searchParams.append(key, queryParams[key])
-  })
+    imageUrl.searchParams.append('from', start)
+  }
 
   try {
     const sessionCookie = await getSessionCookieByZabbixPrefix(prefix)
