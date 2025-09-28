@@ -55,6 +55,7 @@ app.get('/chart.php', async (c) => {
   const queryParams = c.req.query()
   let prefix = 'o'
   const graphId = queryParams.graphid
+  const width = queryParams.width
   let realGraphId = graphId
 
   if (graphId.startsWith('m')) {
@@ -73,6 +74,7 @@ app.get('/chart.php', async (c) => {
 
   const imageUrl = new URL(config[prefix].chart_base_url)
   imageUrl.searchParams.append('graphid', realGraphId)
+  imageUrl.searchParams.append('width', width)
   imageUrl.searchParams.append('profileIdx', 'web.charts.filter')
   imageUrl.searchParams.append('period', queryParams.period)
   if (queryParams.stime) {
