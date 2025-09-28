@@ -61,6 +61,9 @@ app.get('/chart.php', async (c) => {
   if (graphId.startsWith('m')) {
     prefix = 'm'
     realGraphId = graphId.substring(1)
+  } else if (graphId.startsWith('s')) {
+    prefix = 's'
+    realGraphId = graphId.substring(1)
   } else if (graphId.startsWith('j')) {
     prefix = 'j'
     realGraphId = graphId.substring(1)
